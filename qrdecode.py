@@ -14,6 +14,9 @@ import zbar
 import Image
 import cv2
 
+from lockObject import lockObject
+from servo import servo
+
 class qrdecode(object):
 	def __init__(self):
 		pass
@@ -64,7 +67,11 @@ class camera_task(Thread):
 		return self._stop.isSet()
 
 	def run(self):
+		ptimeout = 0
 		while True:
+			if ptimeout > 2:
+				return
+			ptimeout += 1
 			if self.stopped():
 				return
 			print "----camera----"
@@ -82,20 +89,31 @@ class camera_task(Thread):
 					return
 			except Exception:
 				continue
-			time.sleep(1)
+			time.sleep(2.2)
 
 def main():
 	while  True:
 		queue = Queue()
 		camt0 = camera_task(queue, 0, 0, 'len.jpeg')
 		camt0.daemon = True
-		camt = camera_task(queue, 0, 1)
-		camt.daemon = True
+		#camt = camera_task(queue, 0, 1)
+		#camt.daemon = True
 		camt0.start()
-		camt.start()
+		#camt.start()
 		s = queue.get()
 		print s
-		camt.stop()
+		lk = lockObject()
+		sv = servo()
+		ret = lk.draw_qrcode(s)
+		if ret != False:
+			print 'ok!!! you have picked your stuff successfully!!!!!'
+			lp = subprocess.call(['sudo', './light']) # require a light execute
+			time.sleep(2)
+			sv.open()
+			lk.remove_item(ret)
+		else:
+			print 'no!!! Is that the right qrcode b**ch????'
+		#camt.stop()
 		camt0.stop()
 		raw_input()
 
